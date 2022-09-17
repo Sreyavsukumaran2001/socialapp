@@ -2,10 +2,11 @@ from django.shortcuts import render
 
 # Create your views here.
 from rest_framework.viewsets import ViewSet,ModelViewSet
-from api.serializers import PostSerializer,UserSerializer
+from api.serializers import PostSerializer,UserSerializer,CommentSerializer
 from rest_framework.response import Response
 from api.models import Posts
 from rest_framework import authentication,permissions
+from rest_framework.decorators import action
 
 class PostView(ViewSet):
     authentication_classes = [authentication.TokenAuthentication]
@@ -57,4 +58,53 @@ class UsersView(ViewSet):
 
 class PostModelView(ModelViewSet):
     serializer_class = PostSerializer
-    queryset = Posts.Objects.all()
+    queryset = Posts.objects.all()
+    authentication_classes = [authentication.TokenAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def create(self, request, *args, **kwargs):
+        serializer=PostSerializer(data=request.data,context={"usr":request.user})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(data=serializer.data)
+
+    @action(methods=["GET"],detail=False)
+    def my_posts(self,request,*args,**kwargs):
+        user=request.user
+        qs=user.post.all()
+        serializer=PostSerializer(qs,many=True)
+        return Response(data=serializer.data)
+
+    @action(methods=["GET"], detail=True)
+    def get_comments(self, request, *args, **kwargs):
+        id =kwargs.get("pk")
+        post= Posts.objects.get(id=id)
+        comments=post.comments_set.all()
+        serializer=CommentSerializer(comments,many=True)
+        return Response(data=serializer.data)
+    @action(methods=["POST"],detail=True)
+    def add_comment(self,request,*args,**kwargs):
+        id=kwargs.get("pk")
+        pst=Posts.objects.get(id=id)
+        serializer=CommentSerializer(data=request.data,context={"user":request.user,"post":pst})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(data=serializer.data)
+        else:
+            return Response(data=serializer.errors)
+
+    @action(methods=["POST"],detail=True)
+    def add_like(self,request,*args,**kwargs):
+        id=kwargs.get("pk")
+        pst=Posts.objects.get(id=id)
+        user=request.user
+        pst.liked_by.add(user)
+        return Response(data="ok")
+    @action(methods=["GET"],detail=True)
+    def add_like(self,request,*args,**kwargs):
+        id = kwargs.get("pk")
+        pst = Posts.objects.get(id=id)
+        cnt=pst.liked_by.all().count()
+        return Response(data=cnt)
+
+

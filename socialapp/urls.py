@@ -20,7 +20,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 
 from rest_framework.routers import DefaultRouter
 router=DefaultRouter()
-
+router.register("api/v2/posts",views.PostModelView,basename="mposts")
 router.register("posts",views.PostView,basename="posts")
 router.register("accounts/signup",views.UsersView,basename="users")
 
